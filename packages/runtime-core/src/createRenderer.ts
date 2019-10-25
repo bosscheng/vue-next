@@ -14,7 +14,8 @@ import {
   createComponentInstance,
   setupStatefulComponent,
   handleSetupResult,
-  Component
+  Component,
+  Data
 } from './component'
 import {
   renderComponentRoot,
@@ -36,7 +37,8 @@ import {
   ReactiveEffectOptions,
   isRef,
   Ref,
-  toRaw
+  toRaw,
+  DebuggerEvent
 } from '@vue/reactivity'
 import { resolveProps } from './componentProps'
 import { resolveSlots } from './componentSlots'
@@ -70,7 +72,7 @@ function isSameType(n1: VNode, n2: VNode): boolean {
   return n1.type === n2.type && n1.key === n2.key
 }
 
-function invokeHooks(hooks: Function[], arg?: any) {
+function invokeHooks(hooks: Function[], arg?: DebuggerEvent) {
   for (let i = 0; i < hooks.length; i++) {
     hooks[i](arg)
   }
@@ -121,7 +123,7 @@ export interface RendererOptions<HostNode = any, HostElement = any> {
 
 export type RootRenderFunction<HostNode, HostElement> = (
   vnode: VNode<HostNode, HostElement> | null,
-  dom: HostElement | string
+  dom: HostElement
 ) => void
 
 /**
@@ -177,14 +179,10 @@ export function createRenderer<
     optimized: boolean = false
   ) {
     // patching & not same type, unmount old tree
-    if (n1 != null) {
-      if (!isSameType(n1, n2)) {
-        anchor = getNextHostNode(n1)
-        unmount(n1, parentComponent, parentSuspense, true)
-        n1 = null
-      } else if (n1.props && n1.props.$once) {
-        return
-      }
+    if (n1 != null && !isSameType(n1, n2)) {
+      anchor = getNextHostNode(n1)
+      unmount(n1, parentComponent, parentSuspense, true)
+      n1 = null
     }
 
     const { type, shapeFlag } = n2
@@ -555,8 +553,8 @@ export function createRenderer<
   function patchProps(
     el: HostElement,
     vnode: HostVNode,
-    oldProps: any,
-    newProps: any,
+    oldProps: Data,
+    newProps: Data,
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: HostSuspenseBoundary | null,
     isSVG: boolean
@@ -1860,19 +1858,12 @@ export function createRenderer<
     }
   }
 
-  function render(vnode: HostVNode | null, rawContainer: HostElement | string) {
-    let container: any = rawContainer
-    if (isString(container)) {
-      container = hostQuerySelector(container)
-      if (!container) {
-        if (__DEV__) {
-          warn(
-            `Failed to locate root container: ` + `querySelector returned null.`
-          )
-        }
-        return
-      }
+  const render: RootRenderFunction<
+    HostNode,
+    HostElement & {
+      _vnode: HostVNode | null
     }
+  > = (vnode, container) => {
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, null, null, true)

@@ -116,46 +116,50 @@ export interface BaseElementNode extends Node {
   isSelfClosing: boolean
   props: Array<AttributeNode | DirectiveNode>
   children: TemplateChildNode[]
-  codegenNode: CallExpression | SimpleExpressionNode | undefined
+  codegenNode:
+    | CallExpression
+    | SimpleExpressionNode
+    | CacheExpression
+    | undefined
 }
 
 export interface PlainElementNode extends BaseElementNode {
   tagType: ElementTypes.ELEMENT
-  codegenNode: ElementCodegenNode | undefined | SimpleExpressionNode // only when hoisted
+  codegenNode:
+    | ElementCodegenNode
+    | undefined
+    | SimpleExpressionNode // when hoisted
+    | CacheExpression // when cached by v-once
 }
 
 export interface ComponentNode extends BaseElementNode {
   tagType: ElementTypes.COMPONENT
-  codegenNode: ComponentCodegenNode | undefined
+  codegenNode: ComponentCodegenNode | undefined | CacheExpression // when cached by v-once
 }
 
 export interface SlotOutletNode extends BaseElementNode {
   tagType: ElementTypes.SLOT
-  codegenNode: SlotOutletCodegenNode | undefined
+  codegenNode: SlotOutletCodegenNode | undefined | CacheExpression // when cached by v-once
 }
 
 export interface TemplateNode extends BaseElementNode {
   tagType: ElementTypes.TEMPLATE
-  codegenNode:
-    | ElementCodegenNode
-    | CodegenNodeWithDirective<ElementCodegenNode>
-    | undefined
+  codegenNode: ElementCodegenNode | undefined | CacheExpression
 }
 
 export interface PortalNode extends BaseElementNode {
   tagType: ElementTypes.PORTAL
-  codegenNode: ElementCodegenNode | undefined
+  codegenNode: ElementCodegenNode | undefined | CacheExpression
 }
 
 export interface SuspenseNode extends BaseElementNode {
   tagType: ElementTypes.SUSPENSE
-  codegenNode: ElementCodegenNode | undefined
+  codegenNode: ElementCodegenNode | undefined | CacheExpression
 }
 
 export interface TextNode extends Node {
   type: NodeTypes.TEXT
   content: string
-  isEmpty: boolean
 }
 
 export interface CommentNode extends Node {
@@ -298,6 +302,7 @@ export interface CacheExpression extends Node {
   type: NodeTypes.JS_CACHE_EXPRESSION
   index: number
   value: JSChildNode
+  isVNode: boolean
 }
 
 // Codegen Node Types ----------------------------------------------------------
@@ -625,12 +630,14 @@ export function createConditionalExpression(
 
 export function createCacheExpression(
   index: number,
-  value: JSChildNode
+  value: JSChildNode,
+  isVNode: boolean = false
 ): CacheExpression {
   return {
     type: NodeTypes.JS_CACHE_EXPRESSION,
     index,
     value,
+    isVNode,
     loc: locStub
   }
 }

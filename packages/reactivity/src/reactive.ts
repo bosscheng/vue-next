@@ -1,5 +1,9 @@
-import { isObject, toTypeString } from '@vue/shared'
-import { mutableHandlers, readonlyHandlers } from './baseHandlers'
+import { isObject, toRawType } from '@vue/shared'
+import {
+  mutableHandlers,
+  readonlyHandlers,
+  readonlyPropsHandlers
+} from './baseHandlers'
 import {
   mutableCollectionHandlers,
   readonlyCollectionHandlers
@@ -29,16 +33,14 @@ const nonReactiveValues = new WeakSet<any>()
 
 const collectionTypes = new Set<Function>([Set, Map, WeakMap, WeakSet])
 const isObservableType = /*#__PURE__*/ makeMap(
-  ['Object', 'Array', 'Map', 'Set', 'WeakMap', 'WeakSet']
-    .map(t => `[object ${t}]`)
-    .join(',')
+  'Object,Array,Map,Set,WeakMap,WeakSet'
 )
 
 const canObserve = (value: any): boolean => {
   return (
     !value._isVue &&
     !value._isVNode &&
-    isObservableType(toTypeString(value)) &&
+    isObservableType(toRawType(value)) &&
     !nonReactiveValues.has(value)
   )
 }
@@ -78,6 +80,23 @@ export function readonly<T extends object>(
     rawToReadonly,
     readonlyToRaw,
     readonlyHandlers,
+    readonlyCollectionHandlers
+  )
+}
+
+// @internal
+// Return a readonly-copy of a props object, without unwrapping refs at the root
+// level. This is intended to allow explicitly passing refs as props.
+// Technically this should use different global cache from readonly(), but
+// since it is only used on internal objects so it's not really necessary.
+export function readonlyProps<T extends object>(
+  target: T
+): Readonly<{ [K in keyof T]: UnwrapNestedRefs<T[K]> }> {
+  return createReactiveObject(
+    target,
+    rawToReadonly,
+    readonlyToRaw,
+    readonlyPropsHandlers,
     readonlyCollectionHandlers
   )
 }
